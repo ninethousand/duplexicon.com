@@ -1,0 +1,12 @@
+# Testing Database Configuration
+doctrine:
+    dbal:
+        default_connection: default
+        connections:
+            default:
+                driver:   %database_driver%
+                host:     %database_host%
+                dbname:   duplexicon_test
+                user:     %database_user%
+                password: %database_password%
+                charset:  UTF8

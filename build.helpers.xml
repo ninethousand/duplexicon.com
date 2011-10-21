@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="helpers" default="help">
+
+    <!-- Required properties -->
+    <property name="symfony.env" value="prod" />
+
+    <!-- Targets that assign properties -->
+    <target name="symfony.stage.properties" >
+        <property name="symfony.env" value="stage" override="true" />
+    </target>
+
+    <!-- postcache -->
+    <target name="postcache"
+        depends="refresh_vendors_direct"
+        description="postcache deploy hook" />
+
+    <!-- postdeploy targets -->
+    <target name="post_deploy"
+            depends="migrate, 
+                     assetic_dump, 
+                     clear_cache"
+            description="Execute post deployment utilities on production" />
+
+    <target name="post_deploy.staging"
+            depends="staging.properties,
+                     symfony.stage.properties,
+                     post_deploy" 
+            description="Execute post deployment utilities on staging" />
+        
+    <!-- refresh vendors distributed -->
+    <target name="refresh_vendors_distributed"
+        description="Refreshes the vendors" >
+        <exec dir="${project.basedir}/${build.target}/cached-copy"
+            passthru="true"
+            command="bin/vendors install" />
+    </target>
+    
+    <!-- refresh vendors direct -->
+    <target name="refresh_vendors_direct"
+        description="Refreshes the vendors" >
+        <property name="command" 
+                value="(
+                cd ${deploy.path}/${build.target}/cached-copy &amp;&amp; 
+                bin/vendors install  
+                )"
+                override="true" />
+            <foreach  list="${deploy.servers}" 
+                param="deploy.server" 
+                target="deploy.remotecmd" />
+    </target>
+
+    <!-- doctrine:migrations:migrate -->
+    <target name="migrate"
+            description="Run migrations on production servers" >
+            <property name="command" 
+                value="(
+                cd ${deploy.path}/current/app &amp;&amp; 
+                ./console --no-ansi --no-interaction --env=${symfony.env}  doctrine:migrations:migrate  
+                )"
+                override="true" />
+            <foreach  list="${deploy.servers}" 
+                param="deploy.server" 
+                target="deploy.remotecmd" />
+    </target>
+
+    <!-- assets:install -->
+    <!-- assetic:dump -->
+    <target name="assetic_dump"
+            description="Warm assets on production servers" >
+            <property name="command" 
+                value="( 
+                cd ${deploy.path}/current/app &amp;&amp; 
+                ./console --no-ansi --env=${symfony.env} --symlink assets:install ../web &amp;&amp;
+                ./console --no-ansi --env=${symfony.env} assetic:dump  
+                )" 
+                override="true" />
+            <foreach list="${deploy.servers}" 
+                param="deploy.server" 
+                target="deploy.remotecmd" />
+    </target>
+
+    <!-- cache:clear -->
+    <!-- cache:warmup -->
+    <!-- fix cache permissions assumes that the webserver is in the same group as the owner -->
+    <target name="clear_cache"
+            description="dump and warm cache on production servers" >
+            <property name="command" 
+                value="(
+                cd ${deploy.path}/current/app &amp;&amp; 
+                ./console cache:clear --no-warmup &amp;&amp; 
+                ./console cache:warmup --no-ansi &amp;&amp; 
+                chmod -R 770 cache/ &amp;&amp; 
+                chmod -R 770 logs/ 
+                )" 
+                override="true" />
+            <foreach list="${deploy.servers}" 
+                     param="deploy.server" 
+                     target="deploy.remotecmd" />
+    </target>
+    
+    <target name="stop_jobqueue" 
+        description="Stops the jobqueue daemon in production" >
+        
+        <property name="command" 
+            value="(
+            cd ${deploy.path}/current/app  &amp;&amp; 
+            ./console --no-ansi --env=${symfony.env} jobqueue:stop 
+            )" 
+            override="true" />
+        <foreach list="${deploy.servers}" 
+            param="deploy.server" 
+            target="deploy.remotecmd" />
+    </target>
+
+    <target name="stop_jobqueue.staging" 
+        description="Syncs the database in staging" 
+        depends="staging.properties,
+                 symfony.stage.properties,
+                 stop_jobqueue" />
+
+    <target name="start_jobqueue" 
+        description="Syncs the database in production" >
+        
+        <property name="command" 
+            value="(
+            cd ${deploy.path}/current/app  &amp;&amp; 
+            ./console --no-ansi --env=${symfony.env} jobqueue:start
+            )" 
+            override="true" />
+        <foreach list="${deploy.servers}" 
+            param="deploy.server" 
+            target="deploy.remotecmd" />
+    </target>
+
+    <target name="start_jobqueue.staging" 
+        description="Syncs the database in staging" 
+        depends="staging.properties,
+                 symfony.stage.properties,
+                 start_jobqueue" />
+                 
+    <!-- rebuild database -->
+    <!-- delete the database, -->
+    <!-- load it with fixtures, -->
+    <!-- run migrations -->
+    <!-- and sync -->
+    <!-- sync -->
+    <target name="rebuild_database.production" 
+            description="Reconstructs the production database" >
+        <property name="command" 
+            value="(
+            cd ${deploy.path}/current/app  &amp;&amp; 
+            ./console --no-ansi --force --env=${symfony.env} doctrine:database:drop &amp;&amp;
+            ./console --no-ansi --env=${symfony.env} doctrine:database:create &amp;&amp;
+            ./console --no-ansi --no-interaction --env=${symfony.env} doctrine:migrations:migrate 
+            )" 
+            override="true" />
+        <foreach list="${deploy.servers}" 
+            param="deploy.server" 
+            target="deploy.remotecmd" />
+    </target>
+    
+    <target name="rebuild_database.staging" 
+        description="Reconstructs the staging database" 
+        depends="staging.properties,
+                 symfony.stage.properties,
+                 rebuild_database.production" />
+                 
+    <target name="rebuild_database" 
+            description="runs reconstruct_database locally. Defaults to dev; set env with -Dmyenv=env " >
+        <if>
+            <not>
+                <isset property="env" />
+            </not>
+            <then>
+                <property name="env" value="dev" />
+            </then>
+        </if>
+        <exec command="( 
+            ./console --force --env=${env} doctrine:database:drop &amp;&amp;
+            ./console --env=${env} doctrine:database:create &amp;&amp;
+            ./console --env=${env} --no-interaction doctrine:migrations:migrate 
+            )" 
+            dir="${project.basedir}/app" 
+            passthru="true" />
+    </target>
+    
+    <!-- restart memcached -->
+    <target name="restart_memcached"
+            depends="deploy.memcachedump"
+            description="Restarts the memcached on production" />
+
+    <target name="restart_memcached.staging"
+            depends="staging.properties, deploy.memcachedump"
+            description="Restarts the memcached on staging" />
+            
+    <!-- modification so test can be run -->
+    <target name="test"
+            description="Runs application unit tests">
+        <php expression="$_SERVER['KERNEL_DIR'] = '${project.basedir}/app'" />
+        <phingcall target="test.do" />
+    </target>
+
+    <!-- target shortcuts -->
+    <target name="staging"          depends="deploy.staging" />
+    <target name="production"       depends="deploy.production" />
+
+</project>

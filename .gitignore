@@ -1,0 +1,10 @@
+web/bundles/
+app/bootstrap*
+app/cache/*
+app/logs/*
+.build/
+build.xml
+src/Acme
+vendor/
+web/css/*
+web/js/*
