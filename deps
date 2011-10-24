@@ -60,4 +60,34 @@
 
 [threejs]
     git=http://github.com/mrdoob/three.js.git
-    target=/threejs
+    target=threejs
+
+[doctrine-extensions]
+    git=http://github.com/l3pp4rd/DoctrineExtensions.git 
+    target=gedmo-doctrine-extensions
+
+[DoctrineExtensionsBundle]
+    git=http://github.com/stof/StofDoctrineExtensionsBundle.git 
+    target=bundles/Stof/DoctrineExtensionsBundle
+
+[doctrine-migrations]
+    git=http://github.com/doctrine/migrations.git
+
+[DoctrineMigrationsBundle]
+    git=http://github.com/symfony/DoctrineMigrationsBundle.git
+    target=bundles/Symfony/Bundle/DoctrineMigrationsBundle
+
+[Phingistrano]
+    git=http://github.com/CodeMeme/Phingistrano.git
+
+[ConsoleAutocompleteBundle]
+    git=http://github.com/knplabs/KnpConsoleAutocompleteBundle.git
+    target=/bundles/Knp/Bundle/ConsoleAutocompleteBundle
+
+[doctrine-fixtures]
+    git=http://github.com/doctrine/data-fixtures.git
+
+[DoctrineFixturesBundle]
+    git=http://github.com/symfony/DoctrineFixturesBundle.git
+    target=bundles/Symfony/Bundle/DoctrineFixturesBundle
+
